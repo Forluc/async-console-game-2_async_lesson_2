@@ -4,22 +4,13 @@ import os
 import random
 import time
 from random import choice, randint
-
+from animation.stars import blink
 from animation.fire import fire
 from animation.space_garbage import fly_garbage
-from animation.stars import blink
 from animation.starship import animate_starship
 
 TIC_TIMEOUT = 0.1
-
 COROUTINES = []
-
-
-def get_stars(canvas, height, width):
-    symbols = ['+', '*', '.', ':']
-    number_of_stars = random.randint(50, 200)
-    for _ in range(number_of_stars):
-        COROUTINES.append(blink(canvas, randint(1, height - 1), randint(1, width - 1), choice(symbols)))
 
 
 async def fill_orbit_with_garbage(canvas, width):
@@ -44,10 +35,17 @@ def draw(canvas):
     center_row = round(height / 2)
     center_column = round(width / 2)
 
+    for _ in range(random.randint(500, 2000)):
+        distance_from_frame = 2
+        symbols = ['+', '*', '.', ':']
+        COROUTINES.append(
+            blink(canvas,
+                  randint(distance_from_frame, height - distance_from_frame),
+                  randint(distance_from_frame, width - distance_from_frame),
+                  choice(symbols)))
     COROUTINES.append(fire(canvas, center_row, center_column))
     COROUTINES.append(animate_starship(canvas, center_row, center_column))
     COROUTINES.append(fill_orbit_with_garbage(canvas, width))
-    get_stars(canvas, height, width)
 
     while COROUTINES:
         for coroutine in COROUTINES.copy():
