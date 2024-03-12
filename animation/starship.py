@@ -1,8 +1,8 @@
 import asyncio
 import os
+from itertools import cycle
 
 from animation.curses_tools import draw_frame, get_frame_size, read_controls
-from itertools import cycle
 
 
 def get_rockets():

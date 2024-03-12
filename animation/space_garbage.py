@@ -1,5 +1,6 @@
-from animation.curses_tools import draw_frame
 import asyncio
+
+from animation.curses_tools import draw_frame
 
 
 async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
