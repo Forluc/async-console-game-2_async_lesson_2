@@ -1,6 +1,6 @@
 import asyncio
-from random import randint
 import curses
+from random import randint
 
 
 async def sleep(tics=1):
