@@ -12,6 +12,7 @@ from physics import update_speed
 TIC_TIMEOUT = 0.1
 COROUTINES = []
 OBSTACLES = []
+OBSTACLES_IN_LAST_COLLISIONS = []
 
 
 async def sleep(tics=1):
@@ -103,6 +104,10 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
 
     try:
         while row < rows_number:
+            if current_obstacle in OBSTACLES_IN_LAST_COLLISIONS:
+                OBSTACLES_IN_LAST_COLLISIONS.remove(current_obstacle)
+                return
+            
             draw_frame(canvas, row, column, garbage_frame)
             await asyncio.sleep(0)
             draw_frame(canvas, row, column, garbage_frame, negative=True)
@@ -137,7 +142,8 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
     while 0 < row < max_row and 0 < column < max_column:
         for obstacle in OBSTACLES.copy():
             if obstacle.has_collision(row, column):
-                OBSTACLES.remove(obstacle)
+                OBSTACLES_IN_LAST_COLLISIONS.append(obstacle)
+
                 return
 
         canvas.addstr(round(row), round(column), symbol)
