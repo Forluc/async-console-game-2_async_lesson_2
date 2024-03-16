@@ -5,10 +5,9 @@ import random
 from itertools import cycle
 from random import choice, randint
 
-from animation.curses_tools import draw_frame, get_frame_size, read_controls
-from animation.fire import fire
+from curses_tools import draw_frame, get_frame_size, read_controls
+from obstacles import Obstacle, show_obstacles
 from physics import update_speed
-from animation.obstacles import show_obstacles, Obstacle
 
 TIC_TIMEOUT = 0.1
 COROUTINES = []
@@ -113,6 +112,41 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
         OBSTACLES.remove(current_obstacle)
 
 
+async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
+    """Display animation of gun shot, direction and speed can be specified."""
+
+    row, column = start_row, start_column
+
+    canvas.addstr(round(row), round(column), '*')
+    await asyncio.sleep(0)
+
+    canvas.addstr(round(row), round(column), 'O')
+    await asyncio.sleep(0)
+    canvas.addstr(round(row), round(column), ' ')
+
+    row += rows_speed
+    column += columns_speed
+
+    symbol = '-' if columns_speed else '|'
+
+    rows, columns = canvas.getmaxyx()
+    max_row, max_column = rows - 1, columns - 1
+
+    curses.beep()
+
+    while 0 < row < max_row and 0 < column < max_column:
+        for obstacle in OBSTACLES.copy():
+            if obstacle.has_collision(row, column):
+                OBSTACLES.remove(obstacle)
+                return
+
+        canvas.addstr(round(row), round(column), symbol)
+        await asyncio.sleep(0)
+        canvas.addstr(round(row), round(column), ' ')
+        row += rows_speed
+        column += columns_speed
+
+
 def draw(canvas):
     canvas.border()
     curses.curs_set(False)
@@ -122,7 +156,7 @@ def draw(canvas):
     center_row = round(height / 2)
     center_column = round(width / 2)
 
-    for _ in range(random.randint(500, 2000)):
+    for _ in range(random.randint(50, 200)):
         distance_from_frame = 2
         symbols = ['+', '*', '.', ':']
         COROUTINES.append(
