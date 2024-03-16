@@ -2,31 +2,47 @@ import asyncio
 import curses
 import os
 import random
-import time
 from itertools import cycle
 from random import choice, randint
 
 from animation.curses_tools import draw_frame, get_frame_size, read_controls
 from animation.fire import fire
-from animation.space_garbage import fly_garbage
-from animation.stars import blink
 from physics import update_speed
+from animation.obstacles import show_obstacles, Obstacle
 
 TIC_TIMEOUT = 0.1
 COROUTINES = []
+OBSTACLES = []
+
+
+async def sleep(tics=1):
+    for _ in range(tics):
+        await asyncio.sleep(0)
+
+
+async def blink(canvas, row, column, symbol):
+    while True:
+        canvas.addstr(row, column, symbol, curses.A_DIM)
+        await sleep(randint(1, 20))
+
+        canvas.addstr(row, column, symbol)
+        await sleep(randint(1, 3))
+
+        canvas.addstr(row, column, symbol, curses.A_BOLD)
+        await sleep(randint(1, 5))
+
+        canvas.addstr(row, column, symbol)
+        await sleep(randint(1, 3))
 
 
 async def fill_orbit_with_garbage(canvas, width):
     while True:
         path_to_directory = os.path.join('animation', 'garbage')
         filename = random.choice(os.listdir(path_to_directory))
-
         with open(os.path.join(path_to_directory, filename), "r") as garbage_file:
             frame = garbage_file.read()
-
         COROUTINES.append(fly_garbage(canvas, random.randint(1, width), frame))
-
-        await asyncio.sleep(0)
+        await sleep(15)
 
 
 def get_rockets():
@@ -73,6 +89,30 @@ async def animate_starship(canvas, row, column):
         draw_frame(canvas, row, column, frame, negative=True)
 
 
+async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
+    """Animate garbage, flying from top to bottom. Сolumn position will stay same, as specified on start."""
+    rows_number, columns_number = canvas.getmaxyx()
+
+    column = max(column, 0)
+    column = min(column, columns_number - 1)
+
+    row = 0
+
+    rows, columns = get_frame_size(garbage_frame)
+    current_obstacle = Obstacle(row, column, rows, columns)
+    OBSTACLES.append(current_obstacle)
+
+    try:
+        while row < rows_number:
+            draw_frame(canvas, row, column, garbage_frame)
+            await asyncio.sleep(0)
+            draw_frame(canvas, row, column, garbage_frame, negative=True)
+            row += speed
+            current_obstacle.row += speed
+    finally:
+        OBSTACLES.remove(current_obstacle)
+
+
 def draw(canvas):
     canvas.border()
     curses.curs_set(False)
@@ -93,14 +133,21 @@ def draw(canvas):
     COROUTINES.append(fill_orbit_with_garbage(canvas, width))
     COROUTINES.append(animate_starship(canvas, center_row, center_column))
 
-    while COROUTINES:
+    loop = asyncio.get_event_loop()
+    loop.create_task(show_obstacles(canvas, OBSTACLES))
+    loop.create_task(async_draw(canvas))
+    loop.run_forever()
+
+
+async def async_draw(canvas):
+    while True:
         for coroutine in COROUTINES.copy():
             try:
                 coroutine.send(None)
             except StopIteration:
                 COROUTINES.remove(coroutine)
         canvas.refresh()
-        time.sleep(TIC_TIMEOUT)
+        await asyncio.sleep(TIC_TIMEOUT)
 
 
 if __name__ == '__main__':
