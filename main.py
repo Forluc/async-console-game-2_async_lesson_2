@@ -6,6 +6,7 @@ from itertools import cycle
 from random import choice, randint
 
 from curses_tools import draw_frame, get_frame_size, read_controls
+from explosion import explode
 from obstacles import Obstacle, show_obstacles
 from physics import update_speed
 
@@ -143,7 +144,7 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
         for obstacle in OBSTACLES.copy():
             if obstacle.has_collision(row, column):
                 OBSTACLES_IN_LAST_COLLISIONS.append(obstacle)
-
+                await explode(canvas, row, column)
                 return
 
         canvas.addstr(round(row), round(column), symbol)
@@ -174,7 +175,7 @@ def draw(canvas):
     COROUTINES.append(animate_starship(canvas, center_row, center_column))
 
     loop = asyncio.get_event_loop()
-    loop.create_task(show_obstacles(canvas, OBSTACLES))
+    # loop.create_task(show_obstacles(canvas, OBSTACLES))
     loop.create_task(async_draw(canvas))
     loop.run_forever()
 
