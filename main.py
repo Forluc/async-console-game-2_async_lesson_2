@@ -72,9 +72,9 @@ async def animate_starship(canvas, row, column):
     border_width = 1
     motion_space_height = canvas_height - frame_height - border_width
     motion_space_width = canvas_width - frame_width - border_width
-
     row_speed, column_speed = 0, 0
     for frame in twice_cycle(rockets):
+
         rows_direction, columns_direction, space_pressed = read_controls(canvas)
 
         row_speed, column_speed = update_speed(row_speed, column_speed, rows_direction, columns_direction)
@@ -82,12 +82,19 @@ async def animate_starship(canvas, row, column):
         row = max(1, min(row + row_speed, motion_space_height))
         column = max(1, min(column + column_speed, motion_space_width))
 
+        draw_frame(canvas, row, column, frame)
+
         if space_pressed:
             COROUTINES.append(fire(canvas, row, column + 2))
 
-        draw_frame(canvas, row, column, frame)
         await asyncio.sleep(0)
+
         draw_frame(canvas, row, column, frame, negative=True)
+
+        for obstacle in OBSTACLES.copy():
+            if obstacle.has_collision(row, column):
+                COROUTINES.append(show_gameover(canvas))
+                return
 
 
 async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
@@ -108,7 +115,7 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
             if current_obstacle in OBSTACLES_IN_LAST_COLLISIONS:
                 OBSTACLES_IN_LAST_COLLISIONS.remove(current_obstacle)
                 return
-            
+
             draw_frame(canvas, row, column, garbage_frame)
             await asyncio.sleep(0)
             draw_frame(canvas, row, column, garbage_frame, negative=True)
@@ -152,6 +159,15 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
         canvas.addstr(round(row), round(column), ' ')
         row += rows_speed
         column += columns_speed
+
+
+async def show_gameover(canvas):
+    with open(os.path.join('animation', 'game_over.txt'), 'r') as gameover:
+        gameover = gameover.read()
+    height, width = curses.window.getmaxyx(canvas)
+    while True:
+        draw_frame(canvas, round(height / 3), round(width / 3), gameover)
+        await asyncio.sleep(0)
 
 
 def draw(canvas):
