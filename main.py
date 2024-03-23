@@ -7,13 +7,52 @@ from random import choice, randint
 
 from curses_tools import draw_frame, get_frame_size, read_controls
 from explosion import explode
-from obstacles import Obstacle, show_obstacles
+from obstacles import Obstacle
 from physics import update_speed
 
 TIC_TIMEOUT = 0.1
 COROUTINES = []
 OBSTACLES = []
 OBSTACLES_IN_LAST_COLLISIONS = []
+YEAR = 1956
+
+PHRASES = {
+    1957: "First Sputnik",
+    1961: "Gagarin flew!",
+    1969: "Armstrong got on the moon!",
+    1971: "First orbital space station Salute-1",
+    1981: "Flight of the Shuttle Columbia",
+    1998: 'ISS start building',
+    2011: 'Messenger launch to Mercury',
+    2020: "Take the plasma gun! Shoot the garbage!",
+}
+
+
+def get_garbage_delay_tics(year):
+    if year < 1961:
+        return None
+    elif year < 1969:
+        return 20
+    elif year < 1981:
+        return 14
+    elif year < 1995:
+        return 10
+    elif year < 2010:
+        return 8
+    elif year < 2020:
+        return 6
+    else:
+        return 2
+
+
+async def get_text_for_info_frame(info_frame):
+    global YEAR
+    while True:
+        await sleep(2)
+        YEAR += 1
+        message = f'Year {YEAR} - {PHRASES.get(YEAR, "")}'
+        info_frame.addstr(1, 1, message)
+        await asyncio.sleep(0)
 
 
 async def sleep(tics=1):
@@ -36,14 +75,17 @@ async def blink(canvas, row, column, symbol):
         await sleep(randint(1, 3))
 
 
-async def fill_orbit_with_garbage(canvas, width):
+async def fill_orbit_with_garbage(canvas, column_max):
     while True:
-        path_to_directory = os.path.join('animation', 'garbage')
-        filename = random.choice(os.listdir(path_to_directory))
-        with open(os.path.join(path_to_directory, filename), "r") as garbage_file:
-            frame = garbage_file.read()
-        COROUTINES.append(fly_garbage(canvas, random.randint(1, width), frame))
-        await sleep(15)
+        delay = get_garbage_delay_tics(YEAR)
+        if delay:
+            path_to_directory = os.path.join('animation', 'garbage')
+            filename = random.choice(os.listdir(path_to_directory))
+            with open(os.path.join(path_to_directory, filename), "r") as garbage_file:
+                frame = garbage_file.read()
+            COROUTINES.append(fly_garbage(canvas, random.randint(1, column_max), frame))
+            await sleep(delay)
+        await asyncio.sleep(0)
 
 
 def get_rockets():
@@ -84,8 +126,9 @@ async def animate_starship(canvas, row, column):
 
         draw_frame(canvas, row, column, frame)
 
-        if space_pressed:
-            COROUTINES.append(fire(canvas, row, column + 2))
+        if space_pressed and YEAR >= 2020:
+            displacement_of_firegun = 2
+            COROUTINES.append(fire(canvas, row, column + displacement_of_firegun))
 
         await asyncio.sleep(0)
 
@@ -164,9 +207,12 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
 async def show_gameover(canvas):
     with open(os.path.join('animation', 'game_over.txt'), 'r') as gameover:
         gameover = gameover.read()
-    height, width = curses.window.getmaxyx(canvas)
+    canvas_rows, canvas_columns = curses.window.getmaxyx(canvas)
+    frame_rows, frame_columns = get_frame_size(gameover)
+    row = (canvas_rows - frame_rows) // 2
+    column = (canvas_columns - frame_columns) // 2
     while True:
-        draw_frame(canvas, round(height / 3), round(width / 3), gameover)
+        draw_frame(canvas, row, column, gameover)
         await asyncio.sleep(0)
 
 
@@ -175,35 +221,42 @@ def draw(canvas):
     curses.curs_set(False)
     canvas.nodelay(True)
 
-    height, width = curses.window.getmaxyx(canvas)
-    center_row = round(height / 2)
-    center_column = round(width / 2)
+    row_max, column_max = canvas.getmaxyx()
+    center_row = round(row_max / 2)
+    center_column = round(column_max / 2)
 
     for _ in range(random.randint(50, 200)):
         distance_from_frame = 2
         symbols = ['+', '*', '.', ':']
         COROUTINES.append(
             blink(canvas,
-                  randint(distance_from_frame, height - distance_from_frame),
-                  randint(distance_from_frame, width - distance_from_frame),
+                  randint(distance_from_frame, row_max - distance_from_frame),
+                  randint(distance_from_frame, column_max - distance_from_frame),
                   choice(symbols)))
-    COROUTINES.append(fill_orbit_with_garbage(canvas, width))
+    COROUTINES.append(fill_orbit_with_garbage(canvas, column_max))
     COROUTINES.append(animate_starship(canvas, center_row, center_column))
 
+    info_frame_length = 60
+    info_frame_height = 4
+    info_frame = canvas.derwin(row_max - info_frame_height, column_max - info_frame_length)
+    COROUTINES.append(get_text_for_info_frame(info_frame))
+
     loop = asyncio.get_event_loop()
-    # loop.create_task(show_obstacles(canvas, OBSTACLES))
-    loop.create_task(async_draw(canvas))
+    loop.create_task(async_draw(canvas, info_frame))
     loop.run_forever()
 
 
-async def async_draw(canvas):
+async def async_draw(canvas, info_frame):
     while True:
         for coroutine in COROUTINES.copy():
             try:
                 coroutine.send(None)
             except StopIteration:
                 COROUTINES.remove(coroutine)
+        canvas.border()
         canvas.refresh()
+        info_frame.border()
+        info_frame.refresh()
         await asyncio.sleep(TIC_TIMEOUT)
 
 
