@@ -11,11 +11,10 @@ from obstacles import Obstacle
 from physics import update_speed
 
 TIC_TIMEOUT = 0.1
-COROUTINES = []
-OBSTACLES = []
-OBSTACLES_IN_LAST_COLLISIONS = []
-YEAR = 1956
-
+coroutines = []
+obstacles = []
+obstacles_in_last_collisions = []
+year = 1956
 PHRASES = {
     1957: "First Sputnik",
     1961: "Gagarin flew!",
@@ -46,11 +45,11 @@ def get_garbage_delay_tics(year):
 
 
 async def get_text_for_info_frame(info_frame):
-    global YEAR
+    global year
     while True:
         await sleep(2)
-        YEAR += 1
-        message = f'Year {YEAR} - {PHRASES.get(YEAR, "")}'
+        year += 1
+        message = f'Year {year} - {PHRASES.get(year, "")}'
         info_frame.addstr(1, 1, message)
         await asyncio.sleep(0)
 
@@ -77,13 +76,13 @@ async def blink(canvas, row, column, symbol):
 
 async def fill_orbit_with_garbage(canvas, column_max):
     while True:
-        delay = get_garbage_delay_tics(YEAR)
+        delay = get_garbage_delay_tics(year)
         if delay:
             path_to_directory = os.path.join('animation', 'garbage')
             filename = random.choice(os.listdir(path_to_directory))
             with open(os.path.join(path_to_directory, filename), "r") as garbage_file:
                 frame = garbage_file.read()
-            COROUTINES.append(fly_garbage(canvas, random.randint(1, column_max), frame))
+            coroutines.append(fly_garbage(canvas, random.randint(1, column_max), frame))
             await sleep(delay)
         await asyncio.sleep(0)
 
@@ -126,17 +125,17 @@ async def animate_starship(canvas, row, column):
 
         draw_frame(canvas, row, column, frame)
 
-        if space_pressed and YEAR >= 2020:
+        if space_pressed and year >= 2020:
             displacement_of_firegun = 2
-            COROUTINES.append(fire(canvas, row, column + displacement_of_firegun))
+            coroutines.append(fire(canvas, row, column + displacement_of_firegun))
 
         await asyncio.sleep(0)
 
         draw_frame(canvas, row, column, frame, negative=True)
 
-        for obstacle in OBSTACLES.copy():
+        for obstacle in obstacles.copy():
             if obstacle.has_collision(row, column):
-                COROUTINES.append(show_gameover(canvas))
+                coroutines.append(show_gameover(canvas))
                 return
 
 
@@ -151,12 +150,12 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
 
     rows, columns = get_frame_size(garbage_frame)
     current_obstacle = Obstacle(row, column, rows, columns)
-    OBSTACLES.append(current_obstacle)
+    obstacles.append(current_obstacle)
 
     try:
         while row < rows_number:
-            if current_obstacle in OBSTACLES_IN_LAST_COLLISIONS:
-                OBSTACLES_IN_LAST_COLLISIONS.remove(current_obstacle)
+            if current_obstacle in obstacles_in_last_collisions:
+                obstacles_in_last_collisions.remove(current_obstacle)
                 return
 
             draw_frame(canvas, row, column, garbage_frame)
@@ -165,7 +164,7 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
             row += speed
             current_obstacle.row += speed
     finally:
-        OBSTACLES.remove(current_obstacle)
+        obstacles.remove(current_obstacle)
 
 
 async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
@@ -191,9 +190,9 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
     curses.beep()
 
     while 0 < row < max_row and 0 < column < max_column:
-        for obstacle in OBSTACLES.copy():
+        for obstacle in obstacles.copy():
             if obstacle.has_collision(row, column):
-                OBSTACLES_IN_LAST_COLLISIONS.append(obstacle)
+                obstacles_in_last_collisions.append(obstacle)
                 await explode(canvas, row, column)
                 return
 
@@ -228,18 +227,18 @@ def draw(canvas):
     for _ in range(random.randint(50, 200)):
         distance_from_frame = 2
         symbols = ['+', '*', '.', ':']
-        COROUTINES.append(
+        coroutines.append(
             blink(canvas,
                   randint(distance_from_frame, row_max - distance_from_frame),
                   randint(distance_from_frame, column_max - distance_from_frame),
                   choice(symbols)))
-    COROUTINES.append(fill_orbit_with_garbage(canvas, column_max))
-    COROUTINES.append(animate_starship(canvas, center_row, center_column))
+    coroutines.append(fill_orbit_with_garbage(canvas, column_max))
+    coroutines.append(animate_starship(canvas, center_row, center_column))
 
     info_frame_length = 60
     info_frame_height = 4
     info_frame = canvas.derwin(row_max - info_frame_height, column_max - info_frame_length)
-    COROUTINES.append(get_text_for_info_frame(info_frame))
+    coroutines.append(get_text_for_info_frame(info_frame))
 
     loop = asyncio.get_event_loop()
     loop.create_task(async_draw(canvas, info_frame))
@@ -248,11 +247,11 @@ def draw(canvas):
 
 async def async_draw(canvas, info_frame):
     while True:
-        for coroutine in COROUTINES.copy():
+        for coroutine in coroutines.copy():
             try:
                 coroutine.send(None)
             except StopIteration:
-                COROUTINES.remove(coroutine)
+                coroutines.remove(coroutine)
         canvas.border()
         canvas.refresh()
         info_frame.border()
