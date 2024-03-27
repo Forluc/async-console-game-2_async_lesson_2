@@ -73,15 +73,11 @@ async def blink(canvas, row, column, symbol, offset_tics):
         await sleep(offset_tics[3])
 
 
-async def fill_orbit_with_garbage(canvas, column_max):
+async def fill_orbit_with_garbage(canvas, column_max, garbages):
     while True:
         delay = get_garbage_delay_tics(year)
         if delay:
-            path_to_directory = os.path.join('animation', 'garbage')
-            filename = choice(os.listdir(path_to_directory))
-            with open(os.path.join(path_to_directory, filename), "r") as garbage_file:
-                frame = garbage_file.read()
-            coroutines.append(fly_garbage(canvas, randint(1, column_max), frame))
+            coroutines.append(fly_garbage(canvas, randint(1, column_max), choice(garbages)))
             await sleep(delay)
         await asyncio.sleep(0)
 
@@ -223,6 +219,11 @@ def draw(canvas):
     center_row = round(row_max / 2)
     center_column = round(column_max / 2)
 
+    garbages = []
+    for garbage in os.listdir(os.path.join('animation', 'garbage')):
+        with open(os.path.join('animation', 'garbage', garbage), 'r') as file:
+            garbages.append(file.read())
+
     for _ in range(randint(50, 200)):
         distance_from_frame = 2
         symbols = ['+', '*', '.', ':']
@@ -232,7 +233,7 @@ def draw(canvas):
                   randint(distance_from_frame, column_max - distance_from_frame),
                   choice(symbols),
                   [randint(1, 20), randint(1, 3), randint(1, 5), randint(1, 3)]))
-    coroutines.append(fill_orbit_with_garbage(canvas, column_max))
+    coroutines.append(fill_orbit_with_garbage(canvas, column_max, garbages))
     coroutines.append(animate_starship(canvas, center_row, center_column))
 
     info_frame_length = 60
