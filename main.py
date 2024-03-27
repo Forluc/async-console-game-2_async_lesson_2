@@ -1,7 +1,6 @@
 import asyncio
 import curses
 import os
-import random
 from itertools import cycle
 from random import choice, randint
 
@@ -59,19 +58,19 @@ async def sleep(tics=1):
         await asyncio.sleep(0)
 
 
-async def blink(canvas, row, column, symbol):
+async def blink(canvas, row, column, symbol, offset_tics):
     while True:
         canvas.addstr(row, column, symbol, curses.A_DIM)
-        await sleep(randint(1, 20))
+        await sleep(offset_tics[0])
 
         canvas.addstr(row, column, symbol)
-        await sleep(randint(1, 3))
+        await sleep(offset_tics[1])
 
         canvas.addstr(row, column, symbol, curses.A_BOLD)
-        await sleep(randint(1, 5))
+        await sleep(offset_tics[2])
 
         canvas.addstr(row, column, symbol)
-        await sleep(randint(1, 3))
+        await sleep(offset_tics[3])
 
 
 async def fill_orbit_with_garbage(canvas, column_max):
@@ -79,10 +78,10 @@ async def fill_orbit_with_garbage(canvas, column_max):
         delay = get_garbage_delay_tics(year)
         if delay:
             path_to_directory = os.path.join('animation', 'garbage')
-            filename = random.choice(os.listdir(path_to_directory))
+            filename = choice(os.listdir(path_to_directory))
             with open(os.path.join(path_to_directory, filename), "r") as garbage_file:
                 frame = garbage_file.read()
-            coroutines.append(fly_garbage(canvas, random.randint(1, column_max), frame))
+            coroutines.append(fly_garbage(canvas, randint(1, column_max), frame))
             await sleep(delay)
         await asyncio.sleep(0)
 
@@ -224,14 +223,15 @@ def draw(canvas):
     center_row = round(row_max / 2)
     center_column = round(column_max / 2)
 
-    for _ in range(random.randint(50, 200)):
+    for _ in range(randint(50, 200)):
         distance_from_frame = 2
         symbols = ['+', '*', '.', ':']
         coroutines.append(
             blink(canvas,
                   randint(distance_from_frame, row_max - distance_from_frame),
                   randint(distance_from_frame, column_max - distance_from_frame),
-                  choice(symbols)))
+                  choice(symbols),
+                  [randint(1, 20), randint(1, 3), randint(1, 5), randint(1, 3)]))
     coroutines.append(fill_orbit_with_garbage(canvas, column_max))
     coroutines.append(animate_starship(canvas, center_row, center_column))
 
